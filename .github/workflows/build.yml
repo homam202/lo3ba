@@ -1,19 +1,25 @@
-name: mario_faces
-description: Mario-style platformer with custom faces
-publish_to: none
-version: 1.0.0+1
-
-environment:
-  sdk: '>=3.0.0 <4.0.0'
-
-dependencies:
-  flutter:
-    sdk: flutter
-
-dev_dependencies:
-  flutter_lints: ^4.0.0
-
-flutter:
-  uses-material-design: true
-  assets:
-    - assets/faces/
+name: Build APK
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate Android platform files
+        run: flutter create --platforms=android --project-name mario_faces --org com.example .
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mario-faces-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
