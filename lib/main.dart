@@ -12,6 +12,13 @@ void main() {
   SystemChrome.setPreferredOrientations(
       [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  ErrorWidget.builder = (d) => Material(
+      color: Colors.white,
+      child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: SingleChildScrollView(
+              child: Text('ERROR: ${d.exceptionAsString()}\n${d.stack}',
+                  style: const TextStyle(color: Colors.red, fontSize: 11)))));
   runApp(const MaterialApp(
       debugShowCheckedModeBanner: false, home: MenuScreen()));
 }
@@ -271,6 +278,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
   Game? game;
+  String? error;
   late Ticker ticker;
   Duration last = Duration.zero;
 
@@ -280,11 +288,17 @@ class _GameScreenState extends State<GameScreen>
     loadFace(widget.index).then((img) {
       final g = Game(img)..loadLevel();
       setState(() => game = g);
+    }).catchError((e, st) {
+      setState(() => error = '$e\n$st');
     });
     ticker = createTicker((d) {
       final dt = (d - last).inMicroseconds / 1e6;
       last = d;
-      game?.update(dt);
+      try {
+        game?.update(dt);
+      } catch (e, st) {
+        if (error == null) setState(() => error = 'UPDATE: $e\n$st');
+      }
     })..start();
   }
 
@@ -316,6 +330,12 @@ class _GameScreenState extends State<GameScreen>
   @override
   Widget build(BuildContext context) {
     final g = game;
+    if (error != null) {
+      return Scaffold(
+          body: SingleChildScrollView(
+              child: Text('ERROR: $error',
+                  style: const TextStyle(color: Colors.red, fontSize: 11))));
+    }
     if (g == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -385,6 +405,21 @@ class GamePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    try {
+      _paint(canvas, size);
+    } catch (e, st) {
+      canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
+      final tp = TextPainter(
+          text: TextSpan(
+              text: 'PAINT ERROR: $e\n$st',
+              style: const TextStyle(color: Colors.red, fontSize: 11)),
+          textDirection: TextDirection.ltr)
+        ..layout(maxWidth: size.width);
+      tp.paint(canvas, Offset.zero);
+    }
+  }
+
+  void _paint(Canvas canvas, Size size) {
     final s = size.height / Game.rows;
     canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF5C94FC));
     canvas.save();
